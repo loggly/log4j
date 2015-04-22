@@ -91,6 +91,14 @@ public class SyslogAppender extends AppenderSkeleton {
   protected static final int SYSLOG_HOST_OI = 0;
   protected static final int FACILITY_OI = 1;
 
+  /**
+   * Max lengths in bytes of a message. Per RFC 5424, size limits are dictated
+   * by the syslog transport mapping in use. But, the practical upper limit of
+   * UDP over IPV4 is 65507 (65535 − 8 byte UDP header − 20 byte IP header).
+   */
+  protected static final int LOWER_MAX_MSG_LENGTH = 480;
+  protected static final int UPPER_MAX_MSG_LENGTH = 65507;
+
   static final String TAB = "    ";
 
   // Have LOG_USER as default
@@ -101,6 +109,11 @@ public class SyslogAppender extends AppenderSkeleton {
   //SyslogTracerPrintWriter stp;
   SyslogQuietWriter sqw;
   String syslogHost;
+
+  /**
+   * Max length in bytes of a message.
+   */
+  int maxMessageLength = UPPER_MAX_MSG_LENGTH;
 
     /**
      * If true, the appender will generate the HEADER (timestamp and host name)
@@ -278,12 +291,10 @@ public class SyslogAppender extends AppenderSkeleton {
 
   private void splitPacket(final String header, final String packet) {
       int byteCount = packet.getBytes().length;
-      //
-      //   if packet is less than RFC 3164 limit
-      //      of 1024 bytes, then write it
-      //      (must allow for up 5to 5 characters in the PRI section
-      //          added by SyslogQuietWriter)
-      if (byteCount <= 1019) {
+
+      // If packet is less than limit, then write it.
+      // Else, write in chunks.
+      if (byteCount <= maxMessageLength) {
           sqw.write(packet);
       } else {
           int split = header.length() + (packet.length() - header.length())/2;
@@ -532,5 +543,25 @@ public class SyslogAppender extends AppenderSkeleton {
           sqw.setLevel(6);
           sqw.write(packet);
       }
+  }
+
+  /**
+   * @return  The max message length in bytes.
+   */
+  public int getMaxMessageLength() {
+    return maxMessageLength;
+  }
+
+  /**
+   * @param byteLen  The max message length in bytes.
+   */
+  public void setMaxMessageLength(int len) {
+    if (len < LOWER_MAX_MSG_LENGTH || len > UPPER_MAX_MSG_LENGTH) {
+      System.err.println(len 
+          + " is an invalid message length. Defaulting to " 
+          + UPPER_MAX_MSG_LENGTH + ".");
+      len = UPPER_MAX_MSG_LENGTH;
+    }
+    maxMessageLength = len;
   }
 }
