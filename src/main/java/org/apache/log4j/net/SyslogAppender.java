@@ -102,6 +102,11 @@ public class SyslogAppender extends AppenderSkeleton {
   SyslogQuietWriter sqw;
   String syslogHost;
 
+  // RFC 3164 limit is 1024 bytes, but new implementations may support larger limits.
+  // Allow for 5 characters in the PRI section added by SyslogQuietWriter.
+  // See splitPacket().
+  int maxMessageBytes = 1019;
+
     /**
      * If true, the appender will generate the HEADER (timestamp and host name)
      * part of the syslog packet.
@@ -283,7 +288,7 @@ public class SyslogAppender extends AppenderSkeleton {
       //      of 1024 bytes, then write it
       //      (must allow for up 5to 5 characters in the PRI section
       //          added by SyslogQuietWriter)
-      if (byteCount <= 1019) {
+      if (byteCount <= maxMessageBytes) {
           sqw.write(packet);
       } else {
           int split = header.length() + (packet.length() - header.length())/2;
@@ -532,5 +537,23 @@ public class SyslogAppender extends AppenderSkeleton {
           sqw.setLevel(6);
           sqw.write(packet);
       }
+  }
+
+  /**
+   * @return  The max syslog message size in bytes.
+   */
+  public int getMaxMessageBytes() {
+    // Allow for 5 characters in the PRI section added by SyslogQuietWriter.
+    // See splitPacket().
+    return maxMessageBytes + 5;
+  }
+
+  /**
+   * @param len  The max syslog message size in bytes.
+   */
+  public void setMaxMessageBytes(int len) {
+    // Allow for 5 characters in the PRI section added by SyslogQuietWriter.
+    // See splitPacket().
+    this.maxMessageBytes = len - 5;
   }
 }
